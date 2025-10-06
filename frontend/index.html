@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkedIn Post Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <div class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-blue-600 mb-2">LinkedIn Post Generator</h1>
+            <p class="text-gray-600">Create professional LinkedIn posts with AI-generated content and images</p>
+        </div>
+
+        <!-- Input Form -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <form id="postForm" class="space-y-6">
+                <div>
+                    <label for="company" class="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
+                    <input type="text" id="company" name="company" required
+                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter your company name">
+                </div>
+
+                <div>
+                    <label for="event" class="block text-sm font-medium text-gray-700 mb-2">Event or Announcement</label>
+                    <textarea id="event" name="event" required rows="4"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Describe the event or announcement"></textarea>
+                </div>
+
+                <div class="flex items-center">
+                    <input type="checkbox" id="generateImage" name="generateImage" checked
+                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                    <label for="generateImage" class="ml-2 block text-sm text-gray-700">
+                        Generate matching image for the post
+                    </label>
+                </div>
+
+                <button type="submit"
+                    class="w-full bg-blue-600 text-white py-3 px-6 rounded-md hover:bg-blue-700 transition duration-200 flex items-center justify-center">
+                    <span>Generate LinkedIn Post</span>
+                    <i class="fas fa-magic ml-2"></i>
+                </button>
+            </form>
+        </div>
+
+        <!-- Preview Section -->
+        <div id="result" class="hidden">
+            <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+                <!-- LinkedIn Post Preview Header -->
+                <div class="p-4 border-b border-gray-200">
+                    <h2 class="text-xl font-semibold text-gray-800">LinkedIn Post Preview</h2>
+                </div>
+
+                <!-- Post Content -->
+                <div class="p-6">
+                    <!-- Generated Image (if any) -->
+                    <div id="imageContainer" class="mb-6 hidden">
+                        <img id="generatedImage" class="w-full h-auto rounded-lg shadow-md" alt="Generated post image">
+                    </div>
+
+                    <!-- Post Text -->
+                    <div id="postContent" class="text-gray-700 whitespace-pre-wrap text-lg"></div>
+
+                    <!-- Engagement Preview -->
+                    <div class="mt-6 flex items-center space-x-4 text-gray-500 border-t pt-4">
+                        <div class="flex items-center">
+                            <i class="far fa-thumbs-up"></i>
+                            <span class="ml-2">Like</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="far fa-comment"></i>
+                            <span class="ml-2">Comment</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="far fa-share-square"></i>
+                            <span class="ml-2">Share</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="bg-gray-50 px-6 py-4 flex justify-between items-center">
+                    <button onclick="copyToClipboard()"
+                        class="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition duration-200 flex items-center">
+                        <i class="far fa-copy mr-2"></i>
+                        <span>Copy Post</span>
+                    </button>
+                    <button onclick="downloadImage()"
+                        class="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200 flex items-center">
+                        <i class="fas fa-download mr-2"></i>
+                        <span>Download Image</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div id="loading" class="hidden">
+            <div class="flex justify-center items-center py-8">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentImageData = null;
+
+        document.getElementById('postForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const company = document.getElementById('company').value;
+            const event = document.getElementById('event').value;
+            const generateImage = document.getElementById('generateImage').checked;
+            
+            // Show loading
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('result').classList.add('hidden');
+
+            try {
+                const response = await fetch('http://localhost:8001/generate-post', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        company_name: company,
+                        event: event,
+                        generate_image: generateImage
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Update post text
+                    document.getElementById('postContent').textContent = data.post;
+                    
+                    // Handle image if present
+                    const imageContainer = document.getElementById('imageContainer');
+                    if (data.image_data && data.mime_type) {
+                        currentImageData = {
+                            data: data.image_data,
+                            mimeType: data.mime_type
+                        };
+                        const img = document.getElementById('generatedImage');
+                        img.src = `data:${data.mime_type};base64,${data.image_data}`;
+                        imageContainer.classList.remove('hidden');
+                    } else {
+                        imageContainer.classList.add('hidden');
+                        currentImageData = null;
+                    }
+                    
+                    // Show result
+                    document.getElementById('result').classList.remove('hidden');
+                } else {
+                    alert('Error generating content: ' + data.detail);
+                }
+            } catch (error) {
+                alert('Error connecting to the server: ' + error.message);
+            } finally {
+                document.getElementById('loading').classList.add('hidden');
+            }
+        });
+
+        function copyToClipboard() {
+            const postContent = document.getElementById('postContent').textContent;
+            navigator.clipboard.writeText(postContent).then(() => {
+                alert('Post copied to clipboard!');
+            }).catch(err => {
+                alert('Failed to copy text: ' + err);
+            });
+        }
+
+        function downloadImage() {
+            if (!currentImageData) {
+                alert('No image available to download');
+                return;
+            }
+
+            const link = document.createElement('a');
+            link.href = `data:${currentImageData.mimeType};base64,${currentImageData.data}`;
+            link.download = 'linkedin-post-image.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
